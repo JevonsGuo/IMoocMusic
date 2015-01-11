@@ -3,6 +3,8 @@ package com.imooc.guessmusic.ui;
 import java.io.UnsupportedEncodingException;
 import java.util.ArrayList;
 import java.util.Random;
+import java.util.Timer;
+import java.util.TimerTask;
 
 import android.app.Activity;
 import android.graphics.Color;
@@ -19,6 +21,7 @@ import android.widget.ImageButton;
 import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.LinearLayout.LayoutParams;
+import android.widget.Toast;
 
 import com.imooc.guessmusic.R;
 import com.imooc.guessmusic.data.Const;
@@ -26,12 +29,23 @@ import com.imooc.guessmusic.model.IWordButtonClickListener;
 import com.imooc.guessmusic.model.Song;
 import com.imooc.guessmusic.model.WordButton;
 import com.imooc.guessmusic.myui.MyGridView;
+import com.imooc.guessmusic.util.MyLog;
 import com.imooc.guessmusic.util.Util;
 
 
 public class MainActivity extends Activity implements IWordButtonClickListener {
 
-	//��Ƭ��ض���
+	public final static String TAG = "MainActivity";
+	
+	/** 答案状态 -- 正确  */
+	public final static int STATUS_ANSWER_RIGHT = 1;
+	/** 答案状态 -- 错误 */
+	public final static int STATUS_ANSWER_WRONG = 2;
+	/** 答案状态 -- 不完整  */
+	public final static int STATUS_ANSWER_LACK = 3;
+	/** 闪烁次数*/
+	public final static int SPAKSH_TIME = 6;
+	// 唱片相关动画
 	private Animation mPanAnim;
 	private LinearInterpolator mPanLin;
 	
@@ -47,18 +61,20 @@ public class MainActivity extends Activity implements IWordButtonClickListener {
 	// Play 按键事件
 	private ImageButton mBtnPlayStart;
 	
+	// 过关界面
+	private View mPassView;
+	
 	// 当前动画是否正在运行
 	private boolean mIsRunning = false;
 	
 	// 文字框容器
 	private ArrayList<WordButton> mAllWords;
 	
+	// 已选择文字框UI容器
+	private LinearLayout mViewWordsContainer;
 	private ArrayList<WordButton> mBtnSelectWords;
 	
 	private MyGridView mMyGridView;
-	
-	// 已选择文字框UI容器
-	private LinearLayout mViewWordsContainer;
 	
 	// 当前的歌曲
 	private Song mCurrentSong;
@@ -173,6 +189,27 @@ public class MainActivity extends Activity implements IWordButtonClickListener {
     public void onWordButtonClick(WordButton wordButton){
  //   	Toast.makeText(this, wordButton.mIndex+"", Toast.LENGTH_SHORT).show();
     	setSelectWord(wordButton);
+    	// 获得答案状态
+    	int checkResult = checkTheAnswer();
+    	// 检查答案
+    	if (checkResult == STATUS_ANSWER_RIGHT) {
+    		// 获得相应的奖励，同时过关
+    		handlePassEvent();
+    	} else if (checkResult == STATUS_ANSWER_WRONG){
+    		// 错误提示，闪烁文字并提示用户
+    		sparkTheWords();
+    		
+    	} else if (checkResult == STATUS_ANSWER_LACK){
+    		// 设置文字颜色为白色（Normal）
+    		for (int i = 0;  i < mBtnSelectWords.size(); i++) {
+				mBtnSelectWords.get(i).mViewButton.setTextColor(Color.WHITE);
+			}
+    	}
+    }
+    // 处理过关界面及事件
+    private void handlePassEvent(){
+    	mPassView = (LinearLayout)this.findViewById(R.id.pass_view);
+    	mPassView.setVisibility(View.VISIBLE);
     }
     
     private void clearTheAnswer(WordButton wordButton) {
@@ -200,8 +237,9 @@ public class MainActivity extends Activity implements IWordButtonClickListener {
     			mBtnSelectWords.get(i).mIndex = wordButton.mIndex;
     			
     			// Log ......
+    			MyLog.d(TAG, mBtnSelectWords.get(i).mIndex + "");
     			
-    			// 设置带选框的可见性
+    			// 设置待选框的可见性
     			setButtonVisible(wordButton, View.INVISIBLE);
     			break;
     		}
@@ -218,6 +256,7 @@ public class MainActivity extends Activity implements IWordButtonClickListener {
     	button.mIsVisiable = (visibility == View.VISIBLE)? true : false;
     	
     	// Log
+    	MyLog.d(TAG, button.mIsVisiable +"");
     }
 
     	/**
@@ -289,7 +328,7 @@ public class MainActivity extends Activity implements IWordButtonClickListener {
     private ArrayList<WordButton> initWordSelect(){
     	ArrayList<WordButton> data = new ArrayList<WordButton>();
     	
-    	for (int i =0; i < mCurrentSong.getNameLength(); i++){
+    	for (int i = 0; i < mCurrentSong.getNameLength(); i++){
     		View view = Util.getView(MainActivity.this, R.layout.self_ui_gridview_item);
     	
     		final WordButton holder = new WordButton();
@@ -370,6 +409,61 @@ public class MainActivity extends Activity implements IWordButtonClickListener {
 		}
     	
     	return str.charAt(0);
+    }
+    
+    /**
+     * 检查答案
+     */
+    private int checkTheAnswer(){
+    	// 先检查已选答案长度
+    	for (int i =0; i < mBtnSelectWords.size(); i++) {
+    		// 如果有空的，说明答案还不完整
+    		if(mBtnSelectWords.get(i).mWordString.length() == 0){
+    			return STATUS_ANSWER_LACK; 			
+    		}
+    	}
+    	// 答案完整，继续检查正确性
+    	StringBuffer sb = new StringBuffer();
+    	for (int i = 0; i < mBtnSelectWords.size(); i++) {
+    		sb.append(mBtnSelectWords.get(i).mWordString);
+    	}
+    	
+    	return (sb.toString().equals(mCurrentSong.getSongName())) ? STATUS_ANSWER_RIGHT:STATUS_ANSWER_WRONG;
+    	
+    }
+    
+    /**
+     * 文字闪烁
+     */
+    private void sparkTheWords() {
+    	// 定时器相关
+    	TimerTask task = new TimerTask(){
+    		boolean mChange = false;
+    		int mSpardTimes = 0;
+			@Override
+			public void run() {
+				runOnUiThread(new Runnable(){
+
+					@Override
+					public void run() {
+						// 显示闪烁的次数
+						if (++mSpardTimes > SPAKSH_TIME){
+							return;
+						}
+						// 执行闪烁逻辑，交替显示红色和白色文字
+						for (int i = 0;  i < mBtnSelectWords.size(); i++) {
+							mBtnSelectWords.get(i).mViewButton.setTextColor(mChange ? Color.RED:Color.WHITE);
+						}
+						mChange = !mChange;
+					}
+					
+				});
+			}
+    		
+    	};
+    	
+    	Timer timer = new Timer();
+    	timer.schedule(task, 1, 150);
     }
     
     @Override
