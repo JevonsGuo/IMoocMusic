@@ -4,8 +4,10 @@ public class Const {
 
 	public static final int INDEX_FILE_NAME = 0;
 	public static final int INDEX_SONG_NAME = 1;
+	public static final int TOTAL_CONIS = 200;
+	
 	public static final String SONG_INFO[][] ={
-		{"__00000.m4a","征服"},
+		{"__00000.m4a","一二三四"},
 		{"__00001.m4a","童话"},
 		{"__00002.m4a","同桌的你"},
 		{"__00003.m4a","七里香"},
