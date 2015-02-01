@@ -22,6 +22,7 @@ import android.widget.ImageView;
 import android.widget.LinearLayout;
 import android.widget.LinearLayout.LayoutParams;
 import android.widget.TextView;
+import android.widget.Toast;
 
 import com.imooc.guessmusic.R;
 import com.imooc.guessmusic.data.Const;
@@ -489,15 +490,18 @@ public class MainActivity extends Activity implements IWordButtonClickListener {
     	boolean tipWord = false;
     	for (int i = 0; i < mBtnSelectWords.size(); i++){
     		if (mBtnSelectWords.get(i).mWordString.length() == 0){
-    			// 根据当前的答案框条件选择对应的文字并填入
-    			onWordButtonClick(findIsAnswerWord(i));
-    			
+  			
     			tipWord = true;
     	    	// 减少金币数量
     	    	if (!handleCoins(-getTipCoins())){
     	    		// 金币数量不够， 显示对话框
+    	    		Toast.makeText(MainActivity.this, "您的金币不够，请充值~", Toast.LENGTH_LONG).show();
+    	    		tipWord = false;
     	    		return;
-    	    	}
+    	    	} 
+    	    	
+    	    	// 根据当前的答案框条件选择对应的文字并填入
+    			onWordButtonClick(findIsAnswerWord(i));
     			break;
     		}
     	}
@@ -515,6 +519,7 @@ public class MainActivity extends Activity implements IWordButtonClickListener {
     	//  减少金币
     	if (!handleCoins(-getDeleteWordCoins())){
     		//  TODO:金币不够，显示提示对话框
+    		Toast.makeText(MainActivity.this, "您的金币不够，请充值~", Toast.LENGTH_LONG).show();
     		return;
     	}
     	
